@@ -1,0 +1,850 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0e5f73">
+<meta name="robots" content="noindex,nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Kompas Giełdowy</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kompas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0}
+[hidden]{display:none!important}
+img{max-width:100%}
+/* Layout: jedna kolumna jak notatnik tradera — przyklejone zakładki u góry, lista instrumentów, szczegóły w wysuwanym arkuszu od dołu. */
+:root {
+  --bg: #eef1f3;
+  --surface: #ffffff;
+  --sunk: #e3e8ec;
+  --fg: #142029;
+  --muted: #5a6872;
+  --line: #d3dae0;
+  --accent: #0e5f73;
+  --accent-ink: #ffffff;
+  --up: #1d7d46;
+  --up-bg: #dcf0e3;
+  --down: #b83a28;
+  --down-bg: #f8e1dc;
+  --warn: #8a5a0b;
+  --warn-bg: #f6ebd3;
+  --info-bg: #dcecf0;
+  --shadow: 0 1px 2px rgba(20, 32, 41, .06), 0 8px 24px rgba(20, 32, 41, .08);
+  --f-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1418; --surface: #152027; --sunk: #1c2a32; --fg: #e4ecf0; --muted: #93a4ae; --line: #2a3a44;
+    --accent: #5cc3d6; --accent-ink: #062027;
+    --up: #5fd08e; --up-bg: #143323; --down: #f08a77; --down-bg: #3a1b16; --warn: #e8b65c; --warn-bg: #362812; --info-bg: #13313a;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1418; --surface: #152027; --sunk: #1c2a32; --fg: #e4ecf0; --muted: #93a4ae; --line: #2a3a44;
+  --accent: #5cc3d6; --accent-ink: #062027;
+  --up: #5fd08e; --up-bg: #143323; --down: #f08a77; --down-bg: #3a1b16; --warn: #e8b65c; --warn-bg: #362812; --info-bg: #13313a;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--f-body); font-size: 15px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap {
+  max-width: 880px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h2 { font-size: 22px; font-weight: 600; }
+h3 { font-size: 17px; font-weight: 600; }
+p { margin: 0; }
+.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.eyebrow { font-family: var(--f-display); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.up { color: var(--up); } .down { color: var(--down); }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Nagłówek */
+header.top { padding-block: 18px 6px; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand svg { flex: none; }
+.brand h1 { font-size: 26px; font-weight: 700; letter-spacing: -.01em; }
+.stamp { font-size: 12px; color: var(--muted); text-align: right; }
+
+/* Zakładki */
+nav.tabs {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--bg); padding-block: 8px 10px;
+}
+.tabs-in { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: var(--sunk); border-radius: 10px; padding: 4px; }
+.tab { border: 0; background: transparent; padding: 9px 4px; border-radius: 7px; font-family: var(--f-display); font-weight: 600; font-size: 14px; color: var(--muted); }
+.tab[aria-selected="true"] { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+
+main { padding-block: 6px 48px; }
+section.view { display: grid; gap: 16px; }
+
+.note {
+  background: var(--info-bg); border-radius: 10px; padding: 12px 14px; font-size: 14px;
+  display: grid; gap: 4px;
+}
+.note.warn { background: var(--warn-bg); }
+.note strong { font-weight: 600; }
+
+/* Pasek podsumowania */
+.summary { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface);
+  border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 500;
+}
+.chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.chip .n { font-family: var(--f-mono); }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.seg { display: inline-flex; gap: 2px; background: var(--sunk); border-radius: 8px; padding: 3px; }
+.seg button { border: 0; background: transparent; padding: 5px 10px; border-radius: 6px; font-size: 13px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--fg); }
+select.sort { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font-size: 13px; }
+
+/* Lista skanera */
+.list { background: var(--surface); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+.row {
+  display: grid; grid-template-columns: minmax(0, 1fr) 92px auto; gap: 12px; align-items: center;
+  padding: 12px 14px; border-top: 1px solid var(--line); width: 100%; text-align: left; background: transparent; border-left: 0; border-right: 0; border-bottom: 0;
+}
+.row:first-child { border-top: 0; }
+.row:hover { background: var(--sunk); }
+.row .who { min-width: 0; display: grid; gap: 3px; }
+.row .name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .sym { font-family: var(--f-mono); font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 6px; }
+.row .tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.row .px { text-align: right; display: grid; gap: 2px; min-width: 84px; }
+.row .px .p { font-family: var(--f-mono); font-size: 14px; }
+.row .px .c { font-family: var(--f-mono); font-size: 13px; }
+.spark { width: 92px; height: 30px; display: block; }
+
+.pill { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; font-family: var(--f-display); letter-spacing: .02em; }
+.pill.setup { background: var(--accent); color: var(--accent-ink); }
+.pill.watch { background: var(--up-bg); color: var(--up); }
+.pill.avoid { background: var(--down-bg); color: var(--down); }
+.pill.neutral { background: var(--sunk); color: var(--muted); }
+.tag { font-size: 11.5px; padding: 1px 7px; border-radius: 5px; background: var(--sunk); color: var(--muted); white-space: nowrap; }
+.tag.hot { background: var(--warn-bg); color: var(--warn); }
+
+@media (max-width: 520px) {
+  .row { grid-template-columns: minmax(0, 1fr) auto; }
+  .row .spark { display: none; }
+}
+
+/* Karty */
+.card { background: var(--surface); border-radius: 12px; box-shadow: var(--shadow); padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.kpi { background: var(--sunk); border-radius: 10px; padding: 10px 12px; display: grid; gap: 2px; }
+.kpi .v { font-family: var(--f-mono); font-size: 19px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.kpi .l { font-size: 12px; color: var(--muted); }
+
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 9px; padding: 9px 14px; font-weight: 600; font-size: 14px; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.danger { color: var(--down); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.small { padding: 5px 10px; font-size: 13px; }
+.btnrow { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.tablewrap { overflow-x: auto; margin-inline: -16px; padding-inline: 16px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th { text-align: left; font-weight: 600; font-size: 12px; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 9px 8px; border-bottom: 1px solid var(--line); vertical-align: top; white-space: nowrap; }
+td.r, th.r { text-align: right; }
+
+.field { display: grid; gap: 4px; font-size: 13px; }
+.field input, .field select { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-family: var(--f-mono); font-size: 15px; width: 100%; }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+
+/* Arkusz szczegółów */
+.scrim { position: fixed; inset: 0; background: rgba(8, 14, 18, .45); z-index: 20; display: flex; align-items: flex-end; justify-content: center; }
+.sheet {
+  background: var(--bg); width: 100%; max-width: 760px; max-height: 92vh; overflow-y: auto; border-radius: 16px 16px 0 0;
+  padding-top: 8px;
+  padding-bottom: max(24px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 14px; align-content: start;
+}
+@media (min-width: 800px) { .scrim { align-items: center; } .sheet { border-radius: 16px; max-height: 88vh; } }
+.grab { width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: 0 auto; }
+.sheet-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.close { border: 0; background: var(--sunk); width: 32px; height: 32px; border-radius: 50%; font-size: 18px; line-height: 1; flex: none; }
+.chart { width: 100%; height: auto; display: block; }
+.chart text { fill: var(--muted); font-family: var(--f-mono); font-size: 15px; }
+
+.planbar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.planbar .kpi.stop .v { color: var(--down); } .planbar .kpi.target .v { color: var(--up); }
+.flaglist { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.flaglist li { display: grid; gap: 1px; padding-left: 12px; border-left: 3px solid var(--line); }
+.flaglist li b { font-weight: 600; }
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 16px; font-size: 14px; }
+.metrics div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px dashed var(--line); padding-block: 4px; }
+.explain { white-space: pre-wrap; font-size: 14.5px; }
+.bar { height: 10px; border-radius: 5px; background: var(--down-bg); overflow: hidden; display: flex; }
+.bar span { background: var(--up); display: block; }
+
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%); z-index: 40;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 14px; box-shadow: var(--shadow);
+  max-width: calc(100% - 32px);
+}
+.rules { margin: 0; padding-left: 22px; display: grid; gap: 10px; }
+.rules li::marker { font-family: var(--f-mono); color: var(--accent); }
+.save-state { font-size: 12px; color: var(--muted); }
+.empty { padding: 28px 16px; text-align: center; color: var(--muted); display: grid; gap: 6px; }
+@media (prefers-reduced-motion: no-preference) {
+  .sheet { animation: rise .22s ease-out; }
+  @keyframes rise { from { transform: translateY(24px); opacity: .6; } to { transform: none; opacity: 1; } }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true">
+        <circle cx="15" cy="15" r="13.5" fill="none" stroke="var(--accent)" stroke-width="2"/>
+        <path d="M15 5 L18.5 15 L15 25 L11.5 15 Z" fill="var(--accent)"/>
+        <path d="M15 15 L18.5 15 L15 25 Z" fill="var(--down)"/>
+      </svg>
+      <h1>Kompas Giełdowy</h1>
+    </div>
+    <div class="stamp" id="stamp">Wczytuję dane…</div>
+  </header>
+</div>
+
+<nav class="tabs" aria-label="Sekcje">
+  <div class="wrap">
+    <div class="tabs-in" role="tablist">
+      <button class="tab" role="tab" id="t-scan" aria-selected="true" data-view="scan">Skaner</button>
+      <button class="tab" role="tab" id="t-port" aria-selected="false" data-view="port">Portfel</button>
+      <button class="tab" role="tab" id="t-save" aria-selected="false" data-view="save">Oszczędzanie</button>
+      <button class="tab" role="tab" id="t-rules" aria-selected="false" data-view="rules">Zasady</button>
+    </div>
+  </div>
+</nav>
+
+<main class="wrap">
+  <!-- SKANER -->
+  <section class="view" id="v-scan">
+    <div class="note">
+      <p><strong>To są dane z zamknięcia sesji, nie notowania na żywo.</strong> Skaner pokazuje, które spółki spełniają proste, jawne warunki. Nie wie, co stanie się jutro. Każdy sygnał najpierw sprawdzaj w portfelu treningowym.</p>
+    </div>
+    <div class="summary" id="summary"></div>
+    <div class="toolbar">
+      <div class="seg" id="mkt">
+        <button aria-pressed="true" data-m="all">Wszystkie</button>
+        <button aria-pressed="false" data-m="GPW">GPW</button>
+        <button aria-pressed="false" data-m="USA">USA</button>
+      </div>
+      <label class="small muted" for="sort">Sortuj
+        <select class="sort" id="sort">
+          <option value="status">wg statusu</option>
+          <option value="chg1d">zmiana dzienna</option>
+          <option value="chg1m">zmiana miesięczna</option>
+          <option value="rsi">RSI</option>
+          <option value="vol">wolumen</option>
+          <option value="name">nazwa</option>
+        </select>
+      </label>
+    </div>
+    <div class="list" id="list"><div class="empty">Wczytuję skaner…</div></div>
+    <p class="small muted" id="src"></p>
+  </section>
+
+  <!-- PORTFEL -->
+  <section class="view" id="v-port" hidden>
+    <div class="note">
+      <p><strong>Portfel treningowy, pieniądze na niby.</strong> Kupujesz i sprzedajesz po cenach ze skanera. Po kilku tygodniach zobaczysz czarno na białym, czy sygnały faktycznie zarabiają, zanim użyjesz prawdziwych pieniędzy.</p>
+    </div>
+    <div class="kpis" id="pkpis"></div>
+    <div class="card">
+      <div class="toolbar"><h3>Otwarte pozycje</h3><span class="save-state" id="savestate"></span></div>
+      <div id="positions"></div>
+    </div>
+    <div class="card">
+      <h3>Zamknięte transakcje</h3>
+      <div id="closed"></div>
+    </div>
+    <div class="card">
+      <h3>Zacznij od nowa</h3>
+      <p class="small muted">Kasuje pozycje i historię, ustawia nową kwotę startową.</p>
+      <div class="btnrow" style="align-items:flex-end">
+        <label class="field" for="resetcash">Kwota startowa (zł)
+          <input id="resetcash" type="number" min="1000" step="500" value="10000" inputmode="numeric">
+        </label>
+        <button class="btn danger" id="resetbtn">Wyzeruj portfel</button>
+      </div>
+      <div id="resetconfirm" hidden class="note warn">
+        <p>Na pewno? Cała historia transakcji zniknie.</p>
+        <div class="btnrow"><button class="btn danger" id="resetyes">Tak, wyzeruj</button><button class="btn" id="resetno">Anuluj</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- OSZCZĘDZANIE -->
+  <section class="view" id="v-save" hidden>
+    <div class="card">
+      <h2>Ile kapitału potrzeba na 500 zł dziennie</h2>
+      <p class="muted">500 zł w każdy dzień sesyjny (ok. 250 w roku) to <b class="num">125 000 zł</b> rocznie. Tyle kapitału musiałbyś mieć przy różnych stopach zwrotu:</p>
+      <div class="tablewrap"><table id="need"></table></div>
+      <p class="small muted">Rynek akcji przez dekady dawał średnio ok. 7–10% rocznie, z latami na dużym minusie po drodze. Obietnice stałego zysku dziennie to sygnał ostrzegawczy.</p>
+    </div>
+    <div class="card">
+      <h2>Kalkulator regularnego oszczędzania</h2>
+      <div class="fields">
+        <label class="field" for="s-start">Na start (zł)<input id="s-start" type="number" min="0" step="100" value="5000" inputmode="numeric"></label>
+        <label class="field" for="s-month">Co miesiąc (zł)<input id="s-month" type="number" min="0" step="50" value="1000" inputmode="numeric"></label>
+        <label class="field" for="s-years">Lat<input id="s-years" type="number" min="1" max="50" value="20" inputmode="numeric"></label>
+        <label class="field" for="s-rate">Zwrot rocznie
+          <select id="s-rate"><option value="4">4% — ostrożnie</option><option value="7" selected>7% — typowo dla akcji</option><option value="10">10% — optymistycznie</option></select>
+        </label>
+      </div>
+      <div class="kpis" id="s-kpis"></div>
+      <svg class="chart" id="s-chart" viewBox="0 0 600 200" role="img" aria-label="Wzrost oszczędności w czasie"></svg>
+      <div class="note"><p><strong>IKE i IKZE.</strong> Inwestując przez Indywidualne Konto Emerytalne (IKE) albo IKZE, nie płacisz 19% podatku Belki od zysków (przy IKZE dochodzi jeszcze ulga w PIT). Roczny limit wpłat ogłaszany jest co roku. Konto IKE z ETF-ami założysz w większości polskich domów maklerskich.</p></div>
+    </div>
+  </section>
+
+  <!-- ZASADY -->
+  <section class="view" id="v-rules" hidden>
+    <div class="card">
+      <h2>Zasady, które chronią pieniądze</h2>
+      <ol class="rules">
+        <li><b>Najpierw portfel treningowy.</b> Minimum 30 transakcji na niby, zanim użyjesz prawdziwych pieniędzy. Jeśli na niby tracisz, na serio stracisz szybciej.</li>
+        <li><b>Ryzykuj maksymalnie 1% kapitału na transakcję.</b> Przy 10 000 zł to 100 zł straty, jeśli zadziała stop. Kalkulator przy zakupie liczy to za Ciebie.</li>
+        <li><b>Stop-loss ustawiasz przed wejściem.</b> I nie przesuwasz go niżej „bo zaraz odbije”.</li>
+        <li><b>Bez dźwigni i bez CFD.</b> Większość osób prywatnych traci na nich pieniądze. Brokerzy muszą to ujawniać.</li>
+        <li><b>Nikomu nie wpłacasz pieniędzy „do zarządzania”.</b> Ani osobie, ani aplikacji, ani „AI”. Pieniądze trzymasz na własnym rachunku maklerskim w domu maklerskim nadzorowanym przez KNF.</li>
+        <li><b>Większość oszczędności: długoterminowo w ETF-ach.</b> Aktywne granie tylko małą częścią, którą możesz stracić.</li>
+        <li><b>Dziennik decyzji.</b> Zapisuj, dlaczego wszedłeś. Po miesiącu wnioski bywają bardzo pouczające.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3>Jak czytać skaner</h3>
+      <div class="flaglist" style="display:grid;gap:10px">
+        <div><span class="pill setup">Sygnał treningowy</span> <span class="small">Spółka w trendzie wzrostowym chwilowo się cofnęła (RSI 35–50). Klasyczny moment wejścia „z trendem”. Plan: stop 2 ATR niżej, cel 3 ATR wyżej.</span></div>
+        <div><span class="pill watch">Trend w górę</span> <span class="small">Ceny rosną, ale nie ma dobrego punktu wejścia. Obserwuj.</span></div>
+        <div><span class="pill avoid">Słabość</span> <span class="small">Trend spadkowy albo przebicie średniej w dół. Amator nie łapie spadających noży.</span></div>
+        <div><span class="pill neutral">Bez sygnału</span> <span class="small">Nic szczególnego.</span></div>
+      </div>
+      <p class="small muted"><b>ATR</b> to średni dzienny zakres ruchu ceny: mierzy, jak bardzo spółka „skacze”. <b>RSI</b> (0–100) pokazuje siłę ostatnich ruchów. <b>SMA50 / SMA200</b> to średnie ceny z 50 i 200 sesji.</p>
+    </div>
+    <div class="note warn"><p>Kompas Giełdowy to narzędzie edukacyjne i treningowe. Nie jest rekomendacją inwestycyjną ani doradztwem. Decyzje i ryzyko przy prawdziwych pieniądzach są zawsze Twoje.</p></div>
+  </section>
+</main>
+
+<div class="scrim" id="scrim" hidden>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="d-title"></div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (s, el = document) => el.querySelector(s);
+  const nf = (d = 2) => new Intl.NumberFormat("pl-PL", { minimumFractionDigits: d, maximumFractionDigits: d });
+  const fmt = (x, d = 2) => x == null || !isFinite(x) ? "—" : nf(d).format(x);
+  const pct = (x, d = 1) => x == null || !isFinite(x) ? "—" : (x > 0 ? "+" : "") + nf(d).format(x) + "%";
+  const zl = (x, d = 2) => fmt(x, d) + " zł";
+  const cls = x => x > 0 ? "up" : x < 0 ? "down" : "";
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const dpl = iso => iso ? iso.split("-").reverse().slice(0, 2).join(".") : "";
+  const ccy = it => it.currency === "USD" ? "$" : "zł";
+
+  const STATUS = {
+    setup: { label: "Sygnał treningowy", rank: 0 },
+    watch: { label: "Trend w górę", rank: 1 },
+    neutral: { label: "Bez sygnału", rank: 2 },
+    avoid: { label: "Słabość", rank: 3 },
+  };
+  const FEE_RATE = 0.003, FEE_MIN = 3;
+  const fee = v => Math.max(FEE_MIN, v * FEE_RATE);
+
+  let DATA = null, BY = {};
+  const ui = { market: "all", status: null, sort: "status" };
+
+  // ---------- zakładki ----------
+  function showView(v) {
+    document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", String(t.dataset.view === v)));
+    document.querySelectorAll(".view").forEach(s => s.hidden = s.id !== "v-" + v);
+    try { localStorage.setItem("kompas.view", v); } catch {}
+    if (v === "port") renderPortfolio();
+  }
+  document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => showView(t.dataset.view)));
+  try {
+    const h = location.hash.slice(1), saved = localStorage.getItem("kompas.view");
+    const v = ["scan", "port", "save", "rules"].includes(h) ? h : saved;
+    if (v && v !== "scan") showView(v);
+  } catch {}
+
+  // ---------- toast ----------
+  let toastT;
+  function toast(msg) {
+    const t = $("#toast"); t.textContent = msg; t.hidden = false;
+    clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2600);
+  }
+
+  // ---------- wykresy ----------
+  function sparkline(xs) {
+    const w = 92, h = 30, p = 2;
+    const v = xs.slice(-60), mn = Math.min(...v), mx = Math.max(...v), r = mx - mn || 1;
+    const pts = v.map((y, i) => [p + i * (w - 2 * p) / (v.length - 1), h - p - (y - mn) / r * (h - 2 * p)]);
+    const up = v[v.length - 1] >= v[0];
+    const col = up ? "var(--up)" : "var(--down)";
+    const d = pts.map((q, i) => (i ? "L" : "M") + q[0].toFixed(1) + " " + q[1].toFixed(1)).join("");
+    const last = pts[pts.length - 1];
+    return `<svg class="spark" viewBox="0 0 ${w} ${h}" aria-hidden="true">
+      <path d="${d} L${last[0].toFixed(1)} ${h} L${p} ${h} Z" fill="${col}" opacity=".12"/>
+      <path d="${d}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linejoin="round"/>
+      <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="2.2" fill="${col}"/></svg>`;
+  }
+
+  function bigChart(it) {
+    const W = 600, H = 250, L = 8, R = 84, T = 14, B = 26;
+    const c = it.closes, s = it.sma50s;
+    const lines = [...c, ...s.filter(Boolean)];
+    if (it.plan) lines.push(it.plan.stop, it.plan.target);
+    const mn = Math.min(...lines), mx = Math.max(...lines), rg = mx - mn || 1;
+    const x = i => L + i * (W - L - R) / (c.length - 1);
+    const y = v => T + (1 - (v - mn) / rg) * (H - T - B);
+    const path = arr => arr.map((v, i) => v == null ? "" : ((i && arr[i - 1] != null ? "L" : "M") + x(i).toFixed(1) + " " + y(v).toFixed(1))).join("");
+    const up = c[c.length - 1] >= c[0];
+    const col = up ? "var(--up)" : "var(--down)";
+    const grid = [0, .25, .5, .75, 1].map(f => {
+      const v = mn + f * rg, yy = y(v).toFixed(1);
+      return `<line x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}" stroke="var(--line)" stroke-width="1"/>
+              <text x="${W - R + 6}" y="${(+yy + 4).toFixed(1)}">${fmt(v, v >= 1000 ? 0 : 2)}</text>`;
+    }).join("");
+    let plan = "";
+    if (it.plan) {
+      const ys = y(it.plan.stop).toFixed(1), yt = y(it.plan.target).toFixed(1);
+      plan = `<line x1="${L}" x2="${W - R}" y1="${ys}" y2="${ys}" stroke="var(--down)" stroke-dasharray="5 4" stroke-width="1.2"/>
+              <line x1="${L}" x2="${W - R}" y1="${yt}" y2="${yt}" stroke="var(--up)" stroke-dasharray="5 4" stroke-width="1.2"/>`;
+    }
+    const n = c.length - 1;
+    return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Wykres ceny ${esc(it.name)} z ostatnich ${c.length} sesji">
+      ${grid}${plan}
+      <path d="${path(c)} L${x(n).toFixed(1)} ${H - B} L${x(0).toFixed(1)} ${H - B} Z" fill="${col}" opacity=".10"/>
+      <path d="${path(s)}" fill="none" stroke="var(--muted)" stroke-width="1.3" stroke-dasharray="2 3"/>
+      <path d="${path(c)}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round"/>
+      <circle cx="${x(n).toFixed(1)}" cy="${y(c[n]).toFixed(1)}" r="3.5" fill="${col}"/>
+      <text x="${L}" y="${H - 6}">${dpl(it.dates[0])}</text>
+      <text x="${W - R}" y="${H - 6}" text-anchor="end">${dpl(it.dates[n])}</text>
+    </svg>`;
+  }
+
+  // ---------- skaner ----------
+  function renderSummary() {
+    const items = DATA.items.filter(i => ui.market === "all" || i.market === ui.market);
+    const count = k => items.filter(i => i.status === k).length;
+    const dotCol = { setup: "var(--accent)", watch: "var(--up)", neutral: "var(--muted)", avoid: "var(--down)" };
+    $("#summary").innerHTML = Object.entries(STATUS).map(([k, s]) =>
+      `<button class="chip" aria-pressed="${ui.status === k}" data-s="${k}"><span class="dot" style="background:${dotCol[k]}"></span>${s.label} <span class="n">${count(k)}</span></button>`
+    ).join("");
+    $("#summary").querySelectorAll(".chip").forEach(b => b.addEventListener("click", () => {
+      ui.status = ui.status === b.dataset.s ? null : b.dataset.s; renderScan();
+    }));
+  }
+
+  function renderScan() {
+    renderSummary();
+    let items = DATA.items.filter(i => (ui.market === "all" || i.market === ui.market) && (!ui.status || i.status === ui.status));
+    const by = {
+      status: (a, b) => STATUS[a.status].rank - STATUS[b.status].rank || (b.chg1m ?? 0) - (a.chg1m ?? 0),
+      chg1d: (a, b) => (b.chg1d ?? 0) - (a.chg1d ?? 0),
+      chg1m: (a, b) => (b.chg1m ?? 0) - (a.chg1m ?? 0),
+      rsi: (a, b) => (a.rsi ?? 50) - (b.rsi ?? 50),
+      vol: (a, b) => (b.volRatio ?? 0) - (a.volRatio ?? 0),
+      name: (a, b) => a.name.localeCompare(b.name, "pl"),
+    }[ui.sort];
+    items = items.slice().sort(by);
+    if (!items.length) { $("#list").innerHTML = `<div class="empty">Brak spółek z tym statusem.</div>`; return; }
+    $("#list").innerHTML = items.map(it => {
+      const hot = it.flags.filter(f => ["volume", "high52", "low52", "oversold", "overbought", "cross_up", "cross_down"].includes(f.key));
+      return `<button class="row" data-sym="${esc(it.symbol)}">
+        <span class="who">
+          <span class="name">${esc(it.name)}<span class="sym">${esc(it.symbol.replace(".WA", ""))}</span></span>
+          <span class="tags"><span class="pill ${it.status}">${STATUS[it.status].label}</span>${hot.map(f => `<span class="tag ${f.key === "volume" ? "hot" : ""}">${esc(f.label)}</span>`).join("")}</span>
+        </span>
+        ${sparkline(it.closes)}
+        <span class="px"><span class="p">${fmt(it.price)} ${ccy(it)}</span><span class="c ${cls(it.chg1d)}">${pct(it.chg1d)}</span></span>
+      </button>`;
+    }).join("");
+    $("#list").querySelectorAll(".row").forEach(r => r.addEventListener("click", () => openDetail(r.dataset.sym)));
+  }
+
+  $("#mkt").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    ui.market = b.dataset.m;
+    $("#mkt").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+    renderScan();
+  });
+  $("#sort").addEventListener("change", e => { ui.sort = e.target.value; renderScan(); });
+
+  function aggregateBacktest() {
+    let w = 0, l = 0;
+    DATA.items.forEach(i => { w += i.backtest.wins; l += i.backtest.losses; });
+    return { w, l };
+  }
+
+  // ---------- szczegóły ----------
+  let lastFocus = null;
+  function closeSheet() { $("#scrim").hidden = true; explainCtl?.abort(); lastFocus?.focus?.(); }
+  $("#scrim").addEventListener("click", e => { if (e.target.id === "scrim") closeSheet(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#scrim").hidden) closeSheet(); });
+
+  function openDetail(sym) {
+    const it = BY[sym]; if (!it) return;
+    lastFocus = document.activeElement;
+    const bt = it.backtest, tot = bt.wins + bt.losses, agg = aggregateBacktest(), aggTot = agg.w + agg.l;
+    const p = it.plan, c = ccy(it);
+    const rsiWord = it.rsi == null ? "" : it.rsi < 30 ? "mocno wyprzedana" : it.rsi > 70 ? "mocno wykupiona" : it.rsi < 45 ? "słabsza ostatnio" : it.rsi > 55 ? "silna ostatnio" : "neutralna";
+    $("#sheet").innerHTML = `
+      <div class="grab"></div>
+      <div class="sheet-head">
+        <div style="display:grid;gap:4px;min-width:0">
+          <span class="eyebrow">${esc(it.market)} · ${esc(it.symbol)} · zamknięcie ${dpl(it.asOf)}</span>
+          <h2 id="d-title">${esc(it.name)}</h2>
+          <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap">
+            <span class="num" style="font-size:24px">${fmt(it.price)} ${c}</span>
+            <span class="num ${cls(it.chg1d)}">${pct(it.chg1d)} dziś</span>
+            <span class="num ${cls(it.chg1m)} small">${pct(it.chg1m)} miesiąc</span>
+            <span class="pill ${it.status}">${STATUS[it.status].label}</span>
+          </div>
+        </div>
+        <button class="close" id="d-close" aria-label="Zamknij">×</button>
+      </div>
+      <div class="card" style="padding:12px">
+        ${bigChart(it)}
+        <p class="small muted">Linia ciągła: cena (${it.closes.length} sesji). Kropkowana: średnia 50-dniowa. Przerywane: stop (czerwona) i cel (zielona) z planu poniżej.</p>
+      </div>
+      <div class="card">
+        <h3>Co widzi skaner</h3>
+        ${it.flags.length ? `<ul class="flaglist">${it.flags.map(f => `<li><b>${esc(f.label)}</b><span class="small muted">${esc(f.why)}</span></li>`).join("")}</ul>` : `<p class="muted">Nic szczególnego. Brak wyraźnego trendu ani nietypowych ruchów.</p>`}
+        <div class="metrics">
+          <div><span>RSI (14)</span><span class="num">${fmt(it.rsi, 0)} · ${rsiWord}</span></div>
+          <div><span>Typowy ruch dzienny (ATR)</span><span class="num">${fmt(it.atr)} ${c} · ${fmt(it.atrPct, 1)}%</span></div>
+          <div><span>Średnia 50 sesji</span><span class="num">${fmt(it.sma50)} ${c}</span></div>
+          <div><span>Średnia 200 sesji</span><span class="num">${fmt(it.sma200)} ${c}</span></div>
+          <div><span>Wolumen vs średnia</span><span class="num">${fmt(it.volRatio, 1)}×</span></div>
+          <div><span>Zakres 52 tyg.</span><span class="num">${fmt(it.lo52)} – ${fmt(it.hi52)}</span></div>
+        </div>
+      </div>
+      ${p ? `<div class="card">
+        <h3>Plan treningowy</h3>
+        <div class="planbar">
+          <div class="kpi"><span class="l">Wejście</span><span class="v">${fmt(p.entry)}</span></div>
+          <div class="kpi stop"><span class="l">Stop (−2 ATR)</span><span class="v">${fmt(p.stop)}</span></div>
+          <div class="kpi target"><span class="l">Cel (+3 ATR)</span><span class="v">${fmt(p.target)}</span></div>
+        </div>
+        <p class="small muted">Ryzykujesz 2 „typowe ruchy”, żeby zarobić 3. Przy takim układzie wystarczy trafiać w ponad 40% przypadków, żeby wyjść na plus (przed prowizjami).</p>
+        <div style="display:grid;gap:6px">
+          <span class="small"><b>Jak sygnał „pullback w trendzie” działał na tej spółce przez ostatnie 2 lata:</b>
+            ${tot ? `<span class="num">${bt.wins}</span> razy cel, <span class="num">${bt.losses}</span> razy stop${bt.undecided ? `, <span class="num">${bt.undecided}</span> bez rozstrzygnięcia w 20 sesji` : ""}.` : "zbyt mało przypadków, żeby coś powiedzieć."}</span>
+          ${tot ? `<div class="bar" title="Trafienia vs straty"><span style="width:${(bt.wins / tot * 100).toFixed(0)}%"></span></div>` : ""}
+          <span class="small muted">Na wszystkich ${DATA.items.length} instrumentach razem: ${agg.w} trafień na ${aggTot} rozstrzygniętych (${aggTot ? Math.round(agg.w / aggTot * 100) : 0}%). Mała próba, a przeszłość niczego nie gwarantuje.</span>
+        </div>
+      </div>` : ""}
+      ${p ? orderForm(it) : ""}
+      <div class="card" id="explainCard">
+        <div class="toolbar"><h3>Wyjaśnij mi to prostym językiem</h3><button class="btn small" id="explainBtn">Zapytaj Claude</button></div>
+        <p class="explain muted" id="explainOut">Claude opisze, co mówią te liczby, bez rekomendacji kupna czy sprzedaży.</p>
+      </div>
+    `;
+    $("#scrim").hidden = false;
+    $("#sheet").scrollTop = 0;
+    $("#d-close").addEventListener("click", closeSheet);
+    $("#d-close").focus();
+    if (p) wireOrder(it);
+    wireExplain(it);
+  }
+
+  // ---------- zlecenie treningowe ----------
+  function fxOf(it) { return it.currency === "USD" ? (DATA.fx.USDPLN || 4) : 1; }
+
+  function orderForm(it) {
+    return `<div class="card" id="order">
+      <h3>Kup na niby</h3>
+      <div class="fields">
+        <label class="field" for="o-risk">Ryzyko na transakcję (% kapitału)<input id="o-risk" type="number" min="0.25" max="5" step="0.25" value="1" inputmode="decimal"></label>
+        <label class="field" for="o-stop">Stop (${ccy(it)})<input id="o-stop" type="number" step="0.01" value="${it.plan.stop.toFixed(2)}" inputmode="decimal"></label>
+        <label class="field" for="o-target">Cel (${ccy(it)})<input id="o-target" type="number" step="0.01" value="${it.plan.target.toFixed(2)}" inputmode="decimal"></label>
+        <label class="field" for="o-qty">Liczba akcji<input id="o-qty" type="number" min="0" step="1" inputmode="numeric"></label>
+      </div>
+      <div class="kpis" id="o-kpis"></div>
+      <div class="btnrow"><button class="btn primary" id="o-buy">Kup na niby</button></div>
+      <p class="small muted" id="o-hint"></p>
+    </div>`;
+  }
+
+  function wireOrder(it) {
+    const fx = fxOf(it), entry = it.price;
+    let touchedQty = false;
+    const calc = () => {
+      const equity = portfolioEquity();
+      const riskPct = +$("#o-risk").value || 1;
+      const stop = +$("#o-stop").value, target = +$("#o-target").value;
+      const perShareRisk = (entry - stop) * fx;
+      let qty = +$("#o-qty").value;
+      if (!touchedQty) {
+        const byRisk = perShareRisk > 0 ? Math.floor(Math.max(0, equity * riskPct / 100 - 2 * FEE_MIN) / (perShareRisk + 2 * entry * fx * FEE_RATE)) : 0;
+        const byCash = Math.floor(STATE.cash / (entry * fx * (1 + FEE_RATE)));
+        qty = Math.max(0, Math.min(byRisk, byCash));
+        $("#o-qty").value = qty;
+      }
+      const cost = qty * entry * fx, f = qty ? fee(cost) : 0;
+      const loss = qty * (entry - stop) * fx + f * 2, gain = qty * (target - entry) * fx - f * 2;
+      $("#o-kpis").innerHTML = `
+        <div class="kpi"><span class="l">Koszt (z prowizją)</span><span class="v">${zl(cost + f, 0)}</span></div>
+        <div class="kpi"><span class="l">Strata, gdy stop</span><span class="v down">−${zl(Math.max(loss, 0), 0)}</span></div>
+        <div class="kpi"><span class="l">Zysk, gdy cel</span><span class="v up">+${zl(Math.max(gain, 0), 0)}</span></div>
+        <div class="kpi"><span class="l">Gotówka w portfelu</span><span class="v">${zl(STATE.cash, 0)}</span></div>`;
+      const problems = [];
+      if (stop >= entry) problems.push("Stop musi być poniżej ceny wejścia.");
+      if (target <= entry) problems.push("Cel musi być powyżej ceny wejścia.");
+      if (qty < 1) problems.push(perShareRisk > equity * riskPct / 100 ? "Jedna akcja to większe ryzyko niż ustawiony limit. Ta spółka jest za droga na ten portfel." : "Za mało gotówki na choćby jedną akcję.");
+      if (cost + f > STATE.cash + 0.01) problems.push("Brakuje gotówki na tyle akcji.");
+      if (loss > equity * 0.03) problems.push("Ta transakcja ryzykuje ponad 3% portfela. To dużo.");
+      $("#o-hint").textContent = problems.join(" ") || `Prowizja szacunkowa ${FEE_RATE * 100}% (min. ${FEE_MIN} zł) przy kupnie i sprzedaży.${fx !== 1 ? ` Kurs USD/PLN ${fmt(fx, 4)}.` : ""}`;
+      $("#o-buy").disabled = qty < 1 || stop >= entry || target <= entry || cost + f > STATE.cash + 0.01;
+      return { qty, stop, target, cost, f };
+    };
+    ["#o-risk", "#o-stop", "#o-target"].forEach(s => $(s).addEventListener("input", () => { touchedQty = false; calc(); }));
+    $("#o-qty").addEventListener("input", () => { touchedQty = true; calc(); });
+    calc();
+    $("#o-buy").addEventListener("click", async () => {
+      const o = calc(); if (o.qty < 1) return;
+      STATE.cash -= o.cost + o.f;
+      STATE.positions.push({
+        id: Date.now().toString(36), symbol: it.symbol, name: it.name, market: it.market, currency: it.currency,
+        qty: o.qty, entry, fx, stop: o.stop, target: o.target, feeIn: o.f, openedAt: it.asOf,
+      });
+      await persist();
+      closeSheet();
+      toast(`Kupiono na niby: ${o.qty} × ${it.name}`);
+      showView("port");
+    });
+  }
+
+  // ---------- wyjaśnienie (Claude) ----------
+  let explainCtl = null;
+  function wireExplain(it) {
+    const btn = $("#explainBtn"), out = $("#explainOut");
+    if (!SAMPLE) { $("#explainCard").hidden = true; return; }
+    btn.addEventListener("click", async () => {
+      explainCtl?.abort(); explainCtl = new AbortController();
+      btn.disabled = true; out.classList.remove("muted"); out.textContent = "Myślę…";
+      const facts = {
+        spolka: it.name, symbol: it.symbol, rynek: it.market, waluta: it.currency, data: it.asOf,
+        cena: it.price, zmiana_dzien_pct: it.chg1d, zmiana_tydzien_pct: it.chg5d, zmiana_miesiac_pct: it.chg1m,
+        sma50: it.sma50, sma200: it.sma200, rsi14: it.rsi, atr14: it.atr, wolumen_vs_srednia: it.volRatio,
+        min52: it.lo52, max52: it.hi52, flagi: it.flags.map(f => f.label), status: STATUS[it.status].label,
+        plan_treningowy: it.plan, test_historyczny_2_lata: it.backtest,
+      };
+      const prompt = `Jesteś cierpliwym nauczycielem giełdy dla zupełnego amatora. Napisz po polsku, prostymi słowami, 4–6 krótkich akapitów bez nagłówków i bez markdown:
+1) co te liczby mówią o obecnej sytuacji spółki,
+2) co oznacza status skanera i flagi,
+3) jak rozumieć plan treningowy (stop, cel) i wynik testu historycznego (mała próba!),
+4) jakie są główne ryzyka i czego te dane NIE mówią (np. wiadomości, wyniki kwartalne, dane są z zamknięcia sesji).
+Nie dawaj rekomendacji kupna ani sprzedaży, nie przewiduj ceny. Zakończ jednym zdaniem przypominającym, żeby ćwiczyć w portfelu treningowym.
+Dane (JSON): ${JSON.stringify(facts)}`;
+      try {
+        const r = await SAMPLE(prompt, { modelTier: "quick", signal: explainCtl.signal, onText: u => { out.textContent = u.text; } });
+        out.textContent = r.text;
+      } catch (e) {
+        if (e?.name === "AbortError" || e?.code === "aborted") return;
+        out.textContent = e?.code === "not_granted" ? "Bez zgody na pytania do Claude ta funkcja jest wyłączona." :
+          e?.code === "rate_limited" ? "Za dużo pytań naraz. Spróbuj za chwilę." : "Nie udało się pobrać wyjaśnienia. Spróbuj ponownie później.";
+      } finally { btn.disabled = false; }
+    });
+  }
+
+  // ---------- portfel: stan i zapis ----------
+  const fresh = cash => ({ v: 1, startCash: cash, cash, positions: [], closed: [], createdAt: new Date().toISOString().slice(0, 10) });
+  let STATE = fresh(10000);
+  let DB = null, DOCREF = null, SAMPLE = null, saveMode = "local";
+  const LS = "kompas.portfolio";
+
+  function loadLocal() { try { const s = JSON.parse(localStorage.getItem(LS)); if (s && s.v === 1) STATE = s; } catch {} }
+  function saveLocal() { try { localStorage.setItem(LS, JSON.stringify(STATE)); } catch {} }
+
+  let writing = Promise.resolve();
+  async function persist() {
+    saveLocal();
+    renderPortfolio();
+    if (!DOCREF) return;
+    const snap = JSON.parse(JSON.stringify(STATE));
+    writing = writing.then(() => DOCREF.set(snap)).then(() => setSave("cloud")).catch(e => {
+      setSave(e?.code === "invalid_argument" ? "local" : "error");
+    });
+    return writing;
+  }
+  function setSave(m) {
+    saveMode = m;
+    $("#savestate").textContent = m === "cloud" ? "Zapisane na Twoim koncie Claude" : m === "error" ? "Nie udało się zapisać w chmurze, kopia jest w tej przeglądarce" : "Zapisane tylko w tej przeglądarce";
+  }
+
+  function priceOf(sym) { return BY[sym]?.price; }
+  function marketValue(p) { const px = priceOf(p.symbol) ?? p.entry; return p.qty * px * (p.currency === "USD" ? (DATA?.fx.USDPLN || p.fx) : 1); }
+  function portfolioEquity() { return STATE.cash + STATE.positions.reduce((s, p) => s + marketValue(p), 0); }
+
+  function renderPortfolio() {
+    if (!DATA) return;
+    const eq = portfolioEquity(), pnl = eq - STATE.startCash;
+    const closed = STATE.closed, wins = closed.filter(t => t.pnl > 0).length;
+    $("#pkpis").innerHTML = `
+      <div class="kpi"><span class="l">Wartość portfela</span><span class="v">${zl(eq, 0)}</span></div>
+      <div class="kpi"><span class="l">Wynik od startu</span><span class="v ${cls(pnl)}">${pnl >= 0 ? "+" : ""}${zl(pnl, 0)} <span class="small">(${pct(pnl / STATE.startCash * 100)})</span></span></div>
+      <div class="kpi"><span class="l">Gotówka</span><span class="v">${zl(STATE.cash, 0)}</span></div>
+      <div class="kpi"><span class="l">Skuteczność</span><span class="v">${closed.length ? Math.round(wins / closed.length * 100) + "%" : "—"} <span class="small muted">${wins}/${closed.length}</span></span></div>`;
+
+    if (!STATE.positions.length) {
+      $("#positions").innerHTML = `<div class="empty"><b>Brak otwartych pozycji.</b><span>W Skanerze otwórz spółkę z etykietą „Sygnał treningowy” i użyj „Kup na niby”.</span><span><button class="btn small" id="goscan">Przejdź do skanera</button></span></div>`;
+      $("#goscan").addEventListener("click", () => { ui.status = "setup"; renderScan(); showView("scan"); });
+    } else {
+      $("#positions").innerHTML = `<div class="tablewrap"><table>
+        <thead><tr><th>Spółka</th><th class="r">Ilość</th><th class="r">Wejście</th><th class="r">Teraz</th><th class="r">Wynik</th><th>Stop / cel</th><th></th></tr></thead>
+        <tbody>${STATE.positions.map(p => {
+          const it = BY[p.symbol], px = it?.price ?? p.entry, fxNow = p.currency === "USD" ? (DATA.fx.USDPLN || p.fx) : 1;
+          const res = p.qty * (px * fxNow - p.entry * p.fx) - p.feeIn;
+          const hit = px <= p.stop ? `<span class="tag" style="background:var(--down-bg);color:var(--down)">Stop osiągnięty, zamknij</span>` :
+                      px >= p.target ? `<span class="tag" style="background:var(--up-bg);color:var(--up)">Cel osiągnięty</span>` : "";
+          return `<tr><td><b>${esc(p.name)}</b><br><span class="small muted">od ${dpl(p.openedAt)}</span></td>
+            <td class="r num">${p.qty}</td><td class="r num">${fmt(p.entry)}</td><td class="r num">${fmt(px)}</td>
+            <td class="r num ${cls(res)}">${res >= 0 ? "+" : ""}${zl(res, 0)}</td>
+            <td class="num small">${fmt(p.stop)} / ${fmt(p.target)}<br>${hit}</td>
+            <td><button class="btn small" data-close="${p.id}">Sprzedaj</button></td></tr>`;
+        }).join("")}</tbody></table></div>`;
+      $("#positions").querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => {
+        if (b.dataset.armed) return closePosition(b.dataset.close);
+        b.dataset.armed = "1"; b.textContent = "Potwierdź"; b.classList.add("primary");
+        setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = "Sprzedaj"; b.classList.remove("primary"); } }, 4000);
+      }));
+    }
+
+    if (!closed.length) {
+      $("#closed").innerHTML = `<p class="muted small">Tu pojawi się historia z wynikiem każdej transakcji.</p>`;
+    } else {
+      $("#closed").innerHTML = `<div class="tablewrap"><table>
+        <thead><tr><th>Spółka</th><th class="r">Ilość</th><th class="r">Wejście</th><th class="r">Wyjście</th><th class="r">Wynik</th><th>Daty</th></tr></thead>
+        <tbody>${closed.slice().reverse().map(t => `<tr><td>${esc(t.name)}</td><td class="r num">${t.qty}</td>
+          <td class="r num">${fmt(t.entry)}</td><td class="r num">${fmt(t.exit)}</td>
+          <td class="r num ${cls(t.pnl)}">${t.pnl >= 0 ? "+" : ""}${zl(t.pnl, 0)}</td>
+          <td class="small muted">${dpl(t.openedAt)} → ${dpl(t.closedAt)}</td></tr>`).join("")}</tbody></table></div>`;
+    }
+    setSave(saveMode);
+  }
+
+  async function closePosition(id) {
+    const i = STATE.positions.findIndex(p => p.id === id); if (i < 0) return;
+    const p = STATE.positions[i], it = BY[p.symbol];
+    const px = it?.price ?? p.entry, fxNow = p.currency === "USD" ? (DATA.fx.USDPLN || p.fx) : 1;
+    const value = p.qty * px * fxNow, f = fee(value);
+    const pnl = value - f - (p.qty * p.entry * p.fx + p.feeIn);
+    STATE.cash += value - f;
+    STATE.positions.splice(i, 1);
+    STATE.closed.push({ symbol: p.symbol, name: p.name, qty: p.qty, entry: p.entry, exit: px, pnl, openedAt: p.openedAt, closedAt: it?.asOf || p.openedAt });
+    await persist();
+    toast(`Sprzedano ${p.name}: ${pnl >= 0 ? "+" : ""}${zl(pnl, 0)}`);
+  }
+
+  $("#resetbtn").addEventListener("click", () => { $("#resetconfirm").hidden = false; });
+  $("#resetno").addEventListener("click", () => { $("#resetconfirm").hidden = true; });
+  $("#resetyes").addEventListener("click", async () => {
+    const cash = Math.max(1000, +$("#resetcash").value || 10000);
+    STATE = fresh(cash); $("#resetconfirm").hidden = true;
+    await persist(); toast("Portfel wyzerowany");
+  });
+
+  // ---------- oszczędzanie ----------
+  function renderNeed() {
+    const yearly = 500 * 250;
+    $("#need").innerHTML = `<thead><tr><th>Zwrot rocznie</th><th class="r">Potrzebny kapitał</th><th>Jak realne</th></tr></thead><tbody>` +
+      [[5, "bezpieczne obligacje, lokaty"], [7, "typowa średnia akcji w długim okresie"], [10, "bardzo dobry wynik"], [20, "wybitny wynik, rzadko utrzymywany latami"]]
+        .map(([r, d]) => `<tr><td class="num">${r}%</td><td class="r num"><b>${zl(yearly / (r / 100), 0)}</b></td><td class="small muted">${d}</td></tr>`).join("") + `</tbody>`;
+  }
+  function renderSavings() {
+    const start = Math.max(0, +$("#s-start").value || 0), m = Math.max(0, +$("#s-month").value || 0);
+    const yrs = Math.min(50, Math.max(1, Math.round(+$("#s-years").value || 1))), r = +$("#s-rate").value / 100;
+    const mr = Math.pow(1 + r, 1 / 12) - 1;
+    let v = start, paid = start; const pts = [[0, v, paid]];
+    for (let mo = 1; mo <= yrs * 12; mo++) { v = v * (1 + mr) + m; paid += m; if (mo % 12 === 0) pts.push([mo / 12, v, paid]); }
+    const gain = v - paid, monthlyIncome = v * 0.04 / 12;
+    $("#s-kpis").innerHTML = `
+      <div class="kpi"><span class="l">Po ${yrs} latach</span><span class="v">${zl(v, 0)}</span></div>
+      <div class="kpi"><span class="l">Twoje wpłaty</span><span class="v">${zl(paid, 0)}</span></div>
+      <div class="kpi"><span class="l">Zysk z procentu składanego</span><span class="v up">+${zl(gain, 0)}</span></div>
+      <div class="kpi"><span class="l">Bezpieczna wypłata (4% rocznie)</span><span class="v">${zl(monthlyIncome, 0)}/mies.</span></div>`;
+    const W = 600, H = 210, L = 8, R = 92, T = 12, B = 26, mx = v || 1;
+    const x = i => L + i / yrs * (W - L - R), y = val => T + (1 - val / mx) * (H - T - B);
+    const area = k => pts.map((p, i) => (i ? "L" : "M") + x(p[0]).toFixed(1) + " " + y(p[k]).toFixed(1)).join("") + ` L${x(yrs)} ${H - B} L${x(0)} ${H - B} Z`;
+    const grid = [0, .5, 1].map(f => { const yy = y(mx * f).toFixed(1); return `<line x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}" stroke="var(--line)"/><text x="${W - R + 6}" y="${+yy + 4}">${fmt(mx * f / 1000, 0)} tys.</text>`; }).join("");
+    $("#s-chart").innerHTML = `${grid}
+      <path d="${area(1)}" fill="var(--accent)" opacity=".22"/>
+      <path d="${area(2)}" fill="var(--accent)" opacity=".45"/>
+      <text x="${L}" y="${H - 6}">dziś</text><text x="${W - R}" y="${H - 6}" text-anchor="end">za ${yrs} lat</text>
+      <text x="${L + 6}" y="${T + 14}" style="fill:var(--fg)">ciemniejsze: wpłaty · jaśniejsze: zysk</text>`;
+  }
+  ["#s-start", "#s-month", "#s-years", "#s-rate"].forEach(s => $(s).addEventListener("input", renderSavings));
+  renderNeed(); renderSavings();
+
+  // ---------- start ----------
+  loadLocal();
+  fetch("data.json").then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(d => {
+    DATA = d; d.items.forEach(i => BY[i.symbol] = i);
+    const dates = [...new Set(d.items.map(i => i.asOf))].sort();
+    $("#stamp").innerHTML = `Ceny z zamknięcia: <b class="num">${dates.map(dpl).join(" / ")}</b><br>wygenerowano ${new Date(d.generatedAt).toLocaleString("pl-PL", { dateStyle: "short", timeStyle: "short" })}`;
+    $("#src").textContent = `Źródło: ${d.source}. ${d.items.length} instrumentów. Kurs USD/PLN: ${fmt(d.fx.USDPLN, 4)}.`;
+    renderScan(); renderPortfolio();
+  }).catch(() => {
+    $("#stamp").textContent = "Brak danych";
+    $("#list").innerHTML = `<div class="empty"><b>Nie udało się wczytać notowań.</b><span>Odśwież stronę za chwilę.</span></div>`;
+  });
+
+  (async () => {
+    const C = window.claude; if (!C?.use) { setSave("local"); return; }
+    const [db, user, sample] = await Promise.all([C.use("db"), C.use("user"), C.use("sample")]);
+    SAMPLE = sample || null;
+    if (!SAMPLE && $("#explainCard")) $("#explainCard").hidden = true;
+    if (!db || !user) { setSave("local"); return; }
+    const uid = await user.id();
+    if (!uid) { setSave("local"); return; }
+    DB = db; DOCREF = db.doc("data/users/" + uid + "/portfolio");
+    try {
+      const snap = await DOCREF.get();
+      if (snap.exists && snap.data()?.v === 1) { STATE = JSON.parse(JSON.stringify(snap.data())); saveLocal(); setSave("cloud"); }
+      else if (STATE.positions.length || STATE.closed.length) { await DOCREF.set(JSON.parse(JSON.stringify(STATE))); setSave("cloud"); }
+      else setSave("cloud");
+      renderPortfolio();
+    } catch { setSave("local"); }
+  })();
+})();
+</script>
+</body>
+</html>

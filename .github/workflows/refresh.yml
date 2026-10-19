@@ -1,0 +1,58 @@
+name: Odśwież notowania i opublikuj
+
+on:
+  schedule:
+    # Godziny w UTC. 16:30 UTC = 18:30 czasu polskiego latem (po zamknięciu GPW),
+    # 21:30 UTC = 23:30 latem (po zamknięciu giełd w USA). Zimą o godzinę wcześniej.
+    - cron: "30 16 * * 1-5"
+    - cron: "30 21 * * 1-5"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Pobierz notowania
+        if: github.event_name != 'push'
+        run: python3 fetch_data.py
+
+      - name: Zapisz data.json w repozytorium
+        if: github.event_name != 'push'
+        run: |
+          git config user.name "kompas-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data.json
+          git diff --cached --quiet || git commit -m "Notowania $(date -u +%Y-%m-%d\ %H:%M) UTC"
+          git push
+
+      - name: Przygotuj stronę
+        run: |
+          mkdir _site
+          cp index.html data.json manifest.webmanifest icon-180.png icon-512.png _site/
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4
